@@ -28,6 +28,12 @@ export async function POST(req: Request) {
     // Fetch repo info
     const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
     if (!repoRes.ok) {
+      if (repoRes.status === 401) {
+        return NextResponse.json(
+          { error: 'GitHub token expired or invalid. Please sign out and sign in again.', needsReauth: true },
+          { status: 401 },
+        );
+      }
       return NextResponse.json({ error: 'Failed to fetch repo' }, { status: repoRes.status });
     }
     const repoData = await repoRes.json();

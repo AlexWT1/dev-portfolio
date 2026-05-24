@@ -52,22 +52,35 @@ export default function SettingsClient() {
   const [existingProjects, setExistingProjects] = useState<ExistingProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all');
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (forceSync = false) => {
+    if (forceSync) setSyncing(true);
+    else setLoading(true);
     try {
       const [reposRes, projectsRes] = await Promise.all([
-        fetch('/api/github/repos'),
+        forceSync
+          ? fetch('/api/github/repos', { method: 'POST' })
+          : fetch('/api/github/repos'),
         fetch('/api/projects'),
       ]);
-      if (reposRes.ok) setRepos(await reposRes.json());
+      if (reposRes.ok) {
+        setRepos(await reposRes.json());
+      } else {
+        const data = await reposRes.json().catch(() => null);
+        if (data?.needsReauth) {
+          toast.error('GitHub token expired. Please sign out and sign in again to refresh it.');
+        }
+      }
       if (projectsRes.ok) setExistingProjects(await projectsRes.json());
+      if (forceSync && reposRes.ok) toast.success('Repositories synced with GitHub');
     } catch (err) {
-      toast.error('Failed to load data');
+      toast.error(forceSync ? 'Failed to sync repositories' : 'Failed to load data');
     }
-    setLoading(false);
+    if (forceSync) setSyncing(false);
+    else setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -85,7 +98,6 @@ export default function SettingsClient() {
   const handleAddRepo = async (repo: GitHubRepo) => {
     setImporting(repo.id);
     try {
-      // Fetch detailed repo info (includes README)
       const infoRes = await fetch('/api/github/repo-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,14 +105,14 @@ export default function SettingsClient() {
       });
 
       if (!infoRes.ok) {
-        toast.error('Failed to fetch repo details');
+        const data = await infoRes.json().catch(() => null);
+        toast.error(data?.needsReauth ? 'GitHub token expired. Please sign in again.' : 'Failed to fetch repo details');
         setImporting(null);
         return;
       }
 
       const info = await infoRes.json();
 
-      // Create the project
       const projectRes = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,6 +139,54 @@ export default function SettingsClient() {
       await fetchData();
     } catch (err) {
       toast.error('Failed to import repository');
+    }
+    setImporting(null);
+  };
+
+  const handleSyncRepo = async (repo: GitHubRepo) => {
+    const existing = findExistingProject(repo);
+    if (!existing) return;
+
+    setImporting(repo.id);
+    try {
+      const infoRes = await fetch('/api/github/repo-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: repo.owner, repo: repo.name }),
+      });
+
+      if (!infoRes.ok) {
+        const data = await infoRes.json().catch(() => null);
+        toast.error(data?.needsReauth ? 'GitHub token expired. Please sign in again.' : 'Failed to fetch repo details');
+        setImporting(null);
+        return;
+      }
+
+      const info = await infoRes.json();
+
+      const updateRes = await fetch('/api/projects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: existing.id,
+          description: info.description || repo.description,
+          stars: info.stars ?? repo.stars,
+          language: info.language || repo.language,
+          readme: info.readme || '',
+          techStack: info.topics || repo.topics || [],
+        }),
+      });
+
+      if (!updateRes.ok) {
+        toast.error('Failed to sync project');
+        setImporting(null);
+        return;
+      }
+
+      toast.success(`Synced "${repo.name}" with GitHub`);
+      await fetchData();
+    } catch (err) {
+      toast.error('Failed to sync repository');
     }
     setImporting(null);
   };
@@ -173,12 +233,20 @@ export default function SettingsClient() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="max-w-xs"
             />
-            <Button variant="outline" size="icon" onClick={fetchData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => fetchData(true)}
+              disabled={syncing}
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync GitHub'}
+            </Button>
+
+            <div className="flex items-center gap-2">
             <Badge
               variant={filter === 'all' ? 'default' : 'outline'}
               className="cursor-pointer"
@@ -202,8 +270,9 @@ export default function SettingsClient() {
               <Lock className="mr-1 h-3 w-3" />
               Private
             </Badge>
+           </div>
           </div>
-        </div>
+         </div>
 
         {/* Repo grid */}
         {loading ? (
@@ -268,15 +337,31 @@ export default function SettingsClient() {
                               )}
                             </div>
 
-                            {/* Action button */}
-                            <div className="shrink-0">
+                            {/* Action buttons */}
+                            <div className="flex shrink-0 items-center gap-1">
                               {added && existing ? (
-                                <Button variant="ghost" size="sm" className="gap-2 text-emerald-500" asChild>
-                                  <a href={`/projects/${existing.slug}`}>
-                                    <Check className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Added</span>
-                                  </a>
-                                </Button>
+                                <>
+                                  <Button variant="ghost" size="sm" className="gap-2 text-emerald-500" asChild>
+                                    <a href={`/projects/${existing.slug}`}>
+                                      <Check className="h-4 w-4" />
+                                      <span className="hidden sm:inline">Added</span>
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={() => handleSyncRepo(repo)}
+                                    disabled={importing === repo.id}
+                                  >
+                                    {importing === repo.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="h-3.5 w-3.5" />
+                                    )}
+                                    <span className="hidden sm:inline">Sync</span>
+                                  </Button>
+                                </>
                               ) : (
                                 <Button
                                   variant="default"

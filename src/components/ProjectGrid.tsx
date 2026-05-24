@@ -8,9 +8,10 @@ import { FolderOpen } from 'lucide-react';
 interface ProjectGridProps {
   projects: Project[];
   sessionCounts: Record<string, number>;
+  onDelete?: (projectId: string) => void;
 }
 
-export default function ProjectGrid({ projects, sessionCounts }: ProjectGridProps) {
+export default function ProjectGrid({ projects, sessionCounts, onDelete }: ProjectGridProps) {
   if (projects.length === 0) {
     return (
       <motion.div
@@ -37,6 +38,7 @@ export default function ProjectGrid({ projects, sessionCounts }: ProjectGridProp
           project={project}
           index={index}
           sessionCount={sessionCounts[project.id] || 0}
+          onDelete={onDelete}
         />
       ))}
     </div>

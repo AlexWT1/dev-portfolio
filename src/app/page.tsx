@@ -34,6 +34,10 @@ export default function HomePage() {
     sessionCounts[p.id] = p.sessionCount || 0;
   });
 
+  const handleDeleteProject = (projectId: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -123,7 +127,7 @@ export default function HomePage() {
       </motion.div>
 
       {/* Project grid */}
-      <ProjectGrid projects={projects} sessionCounts={sessionCounts} />
+      <ProjectGrid projects={projects} sessionCounts={sessionCounts} onDelete={handleDeleteProject} />
     </div>
   );
 }
