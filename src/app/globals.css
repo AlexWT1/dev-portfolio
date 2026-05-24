@@ -2,7 +2,12 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #09090b;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
 }
 
 @theme inline {
@@ -12,15 +17,105 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Highlight.js theme overrides for dark mode */
+.dark .hljs {
+  background: transparent !important;
+}
+
+.dark .hljs-keyword { color: #c084fc; }
+.dark .hljs-string { color: #86efac; }
+.dark .hljs-comment { color: #71717a; }
+.dark .hljs-function { color: #60a5fa; }
+.dark .hljs-number { color: #fbbf24; }
+.dark .hljs-title { color: #60a5fa; }
+.dark .hljs-built_in { color: #a78bfa; }
+.dark .hljs-type { color: #e879f9; }
+.dark .hljs-literal { color: #f472b6; }
+.dark .hljs-attr { color: #fbbf24; }
+.dark .hljs-attribute { color: #34d399; }
+
+/* Light mode highlight.js overrides */
+.hljs-keyword { color: #7c3aed; }
+.hljs-string { color: #059669; }
+.hljs-comment { color: #a1a1aa; }
+.hljs-function { color: #2563eb; }
+.hljs-number { color: #d97706; }
+.hljs-title { color: #2563eb; }
+.hljs-built_in { color: #7c3aed; }
+.hljs-type { color: #db2777; }
+.hljs-literal { color: #ec4899; }
+.hljs-attr { color: #d97706; }
+.hljs-attribute { color: #059669; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a1a1aa;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #52525b;
+}
+
+/* Selection */
+::selection {
+  background: #18181b;
+  color: #fafafa;
+}
+
+.dark ::selection {
+  background: #fafafa;
+  color: #18181b;
+}
+
+/* Prose overrides for dark mode */
+.dark .prose {
+  --tw-prose-body: #a1a1aa;
+  --tw-prose-headings: #fafafa;
+  --tw-prose-links: #a1a1aa;
+  --tw-prose-bold: #fafafa;
+  --tw-prose-code: #fafafa;
+  --tw-prose-pre-bg: #18181b;
+}
+
+.prose {
+  --tw-prose-pre-bg: #f4f4f5;
+}
+
+/* Framer motion animations are handled via CSS classes */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
 }

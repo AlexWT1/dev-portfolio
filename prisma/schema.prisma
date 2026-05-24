@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---- NextAuth v5 models ----
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---- Custom models ----
+
+model Project {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  title       String
+  description String
+  techStack   Json      @default("[]")
+  githubUrl   String?
+  stars       Int             @default(0)
+  language    String?
+  status      String          @default("active")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  readme      String?
+  ownerId     String
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sessions    SessionRecord[]
+}
+
+model SessionRecord {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  duration        String
+  durationMinutes Int
+  model           String
+  tokensIn        Int      @default(0)
+  tokensOut       Int      @default(0)
+  totalTokens     Int      @default(0)
+  costUSD         Float    @default(0)
+  summary         String
+  changes         Json     @default("[]")
+  gitDiffUrl      String?
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+}
